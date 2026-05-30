@@ -1,0 +1,15 @@
+data_dir: dataset
+
+# Kaggle: bộ dataset ĐÃ CHIA SẴN train/val/test (không dùng raw)
+# python src/utils/download_dataset.py
+kaggle_dataset_slug: ""
+
+classes:
+  - normal
+  - distracted
+  - drink_eat
+  - sleep
+  - use_smartphone
+
+image_size: 224
+num_frames: 16

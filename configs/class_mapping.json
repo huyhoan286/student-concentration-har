@@ -1,0 +1,7 @@
+{
+  "normal": 0,
+  "distracted": 1,
+  "sleep": 2,
+  "use_smartphone": 3,
+  "drink_eat": 4
+}

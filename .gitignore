@@ -1,0 +1,64 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# --- Virtual env ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Test / type check / coverage ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Secrets (Kaggle API, env) ---
+.env
+.env.*
+kaggle.json
+
+# --- Dữ liệu & artifact ML (project) ---
+dataset/
+results/
+dataset/_kaggle_cache/
+
+# --- Model weights (ngoài results/, phòng commit nhầm) ---
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# --- Video (dataset lớn, không commit) ---
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+
+# --- Notebook ---
+.ipynb_checkpoints/
+
+# --- Log tạm ---
+*.log
