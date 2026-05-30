@@ -1,7 +1,8 @@
 data_dir: dataset
 
-# Kaggle: bộ dataset ĐÃ CHIA SẴN train/val/test (không dùng raw)
+# Kaggle (kagglehub): bộ dataset ĐÃ CHIA SẴN train/val/test (không dùng raw)
 # python src/utils/download_dataset.py
+# Xác thực: kagglehub login  hoặc  ~/.kaggle/kaggle.json
 kaggle_dataset_slug: ""
 
 classes:

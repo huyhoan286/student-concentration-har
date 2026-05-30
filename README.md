@@ -35,6 +35,44 @@ Hệ thống **nhận diện hành vi sinh viên trong lớp học** từ video 
 
 Factory tạo model: `src/models/model_base.py` → `build_model("lrcn" | "convlstm" | "movinet")`.
 
+## Clone và chạy một lệnh (máy mới)
+
+```powershell
+git clone <url-repo> student-concentration-har
+cd student-concentration-har
+
+# 1. Sao chép và sửa .env (setup tự tạo từ .env.example nếu chưa có)
+#    KAGGLE_DATASET_SLUG=owner/ten-bo-du-lieu
+#    KAGGLE_API_TOKEN=your_token
+
+# 2. Chạy setup (venv + pip + tải dataset + smoke test)
+.\setup.ps1
+```
+
+Linux / macOS:
+
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+Script sẽ: tạo `.venv` → `pip install` → nạp `.env` → tải Kaggle (nếu thiếu `dataset/`) → test forward LRCN/ConvLSTM.
+
+| File | Vai trò |
+|------|---------|
+| `.env.example` | Mẫu cấu hình (copy → `.env`) |
+| `setup.ps1` / `setup.sh` | Entry point sau clone |
+| `scripts/setup_project.py` | Logic setup (có thể gọi riêng) |
+
+**Nếu đã có sẵn `dataset/`** trên máy: không cần `KAGGLE_*` — setup bỏ qua bước tải.
+
+**Tùy chọn:**
+
+```powershell
+.\setup.ps1 --skip-download    # chỉ cài package + smoke test
+python scripts/setup_project.py --skip-install --skip-download
+```
+
 ## Cấu trúc thư mục
 
 ```
@@ -69,6 +107,10 @@ student-concentration-har/
     ├── gpu_runtime.py        # Batch/workers GPU, TF32, DataLoader
 │       ├── test_model_forward.py # Smoke test (chưa train)
 │       └── evaluate.py           # Đánh giá checkpoint trên test set
+├── .env.example                # Mẫu biến môi trường (Kaggle)
+├── setup.ps1 / setup.sh        # Setup một lệnh sau clone
+├── scripts/
+│   └── setup_project.py
 ├── requirements.txt
 └── README.md
 ```
@@ -105,12 +147,13 @@ pip install -r requirements.txt
 
 **Dataset từ Kaggle** (máy mới, chưa có `dataset/`):
 
-1. Tải `kaggle.json` từ [Kaggle Settings](https://www.kaggle.com/settings) → đặt tại `%USERPROFILE%\.kaggle\kaggle.json`
-2. Sửa `configs/dataset_config.yaml`:
+1. `pip install kagglehub` (đã có trong `requirements.txt`)
+2. Xác thực Kaggle: `kagglehub login` **hoặc** đặt `kaggle.json` tại `%USERPROFILE%\.kaggle\`
+3. Sửa `configs/dataset_config.yaml`:
    ```yaml
    kaggle_dataset_slug: "owner/ten-bo-du-lieu"
    ```
-3. Dataset Kaggle phải có sẵn cấu trúc `train/`, `val/`, `test/` (mỗi split chứa thư mục theo class).
+4. Dataset Kaggle phải có sẵn cấu trúc `train/`, `val/`, `test/` (mỗi split chứa thư mục theo class).
 
 ### Bước 2 — Chuẩn bị dữ liệu
 
@@ -219,7 +262,7 @@ pip install -r requirements.txt
 
 **Tải dataset từ Kaggle:**
 
-1. Tạo API token: [Kaggle Settings](https://www.kaggle.com/settings) → đặt `kaggle.json` tại `~/.kaggle/` (hoặc `%USERPROFILE%\.kaggle\` trên Windows).
+1. Xác thực: `kagglehub login` hoặc [Kaggle API token](https://www.kaggle.com/settings) → `~/.kaggle/kaggle.json`
 2. Sửa `configs/dataset_config.yaml`:
    ```yaml
    kaggle_dataset_slug: "owner/ten-bo-du-lieu"
@@ -314,7 +357,7 @@ Video .mp4  →  StudentBehaviorDataset  →  [B,3,16,224,224]
 
 ## Công nghệ chính
 
-PyTorch, torchvision, OpenCV, scikit-learn, matplotlib, PyYAML, Kaggle API, PyTorchVideo (MoViNet).
+PyTorch, torchvision, OpenCV, scikit-learn, matplotlib, PyYAML, kagglehub, PyTorchVideo (MoViNet).
 
 ---
 

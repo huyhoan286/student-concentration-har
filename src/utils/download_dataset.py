@@ -13,7 +13,8 @@ Cấu hình (configs/dataset_config.yaml):
     kaggle_dataset_slug: "owner/dataset-name"
 Hoặc: KAGGLE_DATASET_SLUG=owner/dataset-name
 
-Yêu cầu: pip install kaggle và ~/.kaggle/kaggle.json
+Yêu cầu: pip install kagglehub
+Xác thực: kagglehub login  hoặc  ~/.kaggle/kaggle.json
 """
 
 from __future__ import annotations
@@ -21,7 +22,6 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -165,44 +165,64 @@ def copy_to_dataset(source_root: Path, dataset_dir: Path) -> None:
     print(f"[OK] Đã copy train/val/test -> {dataset_dir}")
 
 
-def fetch_from_kaggle(slug: str, dest_dir: Path) -> Path:
-    """Tải và giải nén dataset từ Kaggle."""
+def fetch_from_kaggle(
+    slug: str,
+    dest_dir: Path,
+    *,
+    force_download: bool = False,
+) -> Path:
+    """Tải dataset từ Kaggle qua kagglehub."""
+    try:
+        import kagglehub
+    except ImportError as exc:
+        raise RuntimeError(
+            "Thiếu package 'kagglehub'. Cài: pip install kagglehub"
+        ) from exc
+
     dest_dir.mkdir(parents=True, exist_ok=True)
+    print(
+        f"[download] kagglehub.dataset_download({slug!r}, "
+        f"output_dir={dest_dir}, force_download={force_download})"
+    )
 
     try:
-        import kaggle  # noqa: F401, PLC0415
-    except ImportError as exc:
-        raise RuntimeError("Thiếu package 'kaggle'. Cài: pip install kaggle") from exc
-
-    cmd = [
-        sys.executable,
-        "-m",
-        "kaggle",
-        "datasets",
-        "download",
-        "-d",
-        slug,
-        "-p",
-        str(dest_dir),
-        "--unzip",
-    ]
-    print(f"[download] {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        msg = (result.stderr or result.stdout or "").strip()
-        raise RuntimeError(
-            f"Tải Kaggle thất bại (slug={slug}).\n{msg}\n\n"
-            "Kiểm tra: pip install kaggle, ~/.kaggle/kaggle.json, quyền dataset."
+        resolved = kagglehub.dataset_download(
+            slug,
+            output_dir=str(dest_dir),
+            force_download=force_download,
         )
-    print(f"[OK] Đã tải và giải nén: {dest_dir}")
-    return dest_dir
-
-
-def install_from_kaggle_cache(cache_dir: Path, dataset_dir: Path, classes: list[str]) -> None:
-    root = locate_dataset_root(cache_dir, classes)
-    if root is None:
+    except Exception as exc:
         raise RuntimeError(
-            f"Không tìm thấy train/val/test trong {cache_dir}.\n"
+            f"Tải Kaggle thất bại (slug={slug}).\n{exc}\n\n"
+            "Kiểm tra: pip install kagglehub, kagglehub login hoặc "
+            "~/.kaggle/kaggle.json, quyền truy cập dataset."
+        ) from exc
+
+    resolved_path = Path(resolved).resolve()
+    print(f"[OK] Đã tải dataset: {resolved_path}")
+    return resolved_path
+
+
+def install_from_kaggle_cache(
+    cache_dir: Path,
+    dataset_dir: Path,
+    classes: list[str],
+    *,
+    download_root: Path | None = None,
+) -> None:
+    search_roots = [download_root, cache_dir] if download_root else [cache_dir]
+    root = None
+    for candidate in search_roots:
+        if candidate is None:
+            continue
+        root = locate_dataset_root(candidate.resolve(), classes)
+        if root is not None:
+            break
+
+    if root is None:
+        searched = ", ".join(str(p) for p in search_roots if p is not None)
+        raise RuntimeError(
+            f"Không tìm thấy train/val/test trong {searched}.\n"
             "Dataset Kaggle cần: train|val|test/{{class}}/*.mp4"
         )
     copy_to_dataset(root, dataset_dir)
@@ -222,6 +242,12 @@ def download_dataset(
         True nếu dataset đã sẵn sàng.
     """
     root = project_root or get_project_root()
+    try:
+        from env_loader import load_project_env  # noqa: PLC0415
+
+        load_project_env(root)
+    except ImportError:
+        pass
     config = load_dataset_config(root)
     classes = get_classes(config)
     dataset_dir = get_dataset_dir(root, config)
@@ -253,8 +279,17 @@ def download_dataset(
     if force_download and cache_dir.exists():
         shutil.rmtree(cache_dir)
 
-    fetch_from_kaggle(slug, cache_dir)
-    install_from_kaggle_cache(cache_dir, dataset_dir, classes)
+    download_path = fetch_from_kaggle(
+        slug,
+        cache_dir,
+        force_download=force_download,
+    )
+    install_from_kaggle_cache(
+        cache_dir,
+        dataset_dir,
+        classes,
+        download_root=download_path,
+    )
 
     if not has_dataset(dataset_dir, classes, min_total=min_total):
         raise RuntimeError(

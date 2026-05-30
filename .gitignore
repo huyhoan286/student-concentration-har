@@ -37,6 +37,7 @@ desktop.ini
 # --- Secrets (Kaggle API, env) ---
 .env
 .env.*
+!.env.example
 kaggle.json
 
 # --- Dữ liệu & artifact ML (project) ---
