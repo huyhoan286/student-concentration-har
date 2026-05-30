@@ -137,7 +137,7 @@ def _smoke_tests() -> None:
             step="Smoke test movinet",
         )
     except RuntimeError:
-        print("[cảnh báo] MoViNet bỏ qua — cài pytorchvideo nếu cần: pip install pytorchvideo")
+        print("[cảnh báo] MoViNet bỏ qua — cài MoViNet-pytorch: pip install git+https://github.com/Atze00/MoViNet-pytorch.git")
 
 
 def _print_next_steps() -> None:

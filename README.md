@@ -26,7 +26,7 @@ Hệ thống **nhận diện hành vi sinh viên trong lớp học** từ video 
 |-------|---------------------|---------|
 | **LRCN** | ResNet18 (từng frame) + LSTM + FC | Backbone ImageNet |
 | **ConvLSTM** | ResNet18 + LSTM + FC | Cấu trúc tương tự LRCN, triển khai riêng |
-| **MoViNet-A0** | PyTorchVideo `movinet_a0` + head 5 lớp | Cần `pytorchvideo` |
+| **MoViNet-A0** | MoViNet-pytorch (Atze00) + head 5 lớp | Cần `MoViNet-pytorch` |
 
 **Hợp đồng I/O (cả ba model):**
 
@@ -85,7 +85,7 @@ Script sẽ: tạo `.venv` → `pip install` → nạp `.env` → tải Kaggle (
    ```python
    REPO_URL = "https://github.com/<user>/student-concentration-har.git"
    USE_DRIVE = False
-   MODELS_TO_TRAIN = ["lrcn", "convlstm"]  # movinet cần pytorchvideo
+   MODELS_TO_TRAIN = ["lrcn", "convlstm", "movinet"]
    ```
    Hoặc `USE_DRIVE = True` và trỏ `DRIVE_PROJECT_PATH` nếu project nằm trên Drive.
 6. **Run all** — notebook sẽ: clone → `colab_setup.py` → train → evaluate → copy `results/` sang Drive.
@@ -178,7 +178,7 @@ python -c "import torch; print(torch.__version__, 'CUDA:', torch.cuda.is_availab
 | Dataset local | OK — 1028 video (`train` 715 / `val` 207 / `test` 106) |
 | LRCN forward | OK |
 | ConvLSTM forward | OK |
-| MoViNet | Cần cài `pytorchvideo` (xem bước 1) |
+| MoViNet | Cài `MoViNet-pytorch` (xem `requirements.txt`) |
 | Checkpoint | Chưa có cho đến khi bạn train |
 
 ### Bước 1 — Cài đặt
@@ -189,7 +189,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-**MoViNet (tùy chọn):** nếu `pip install pytorchvideo` lỗi trên Windows, vẫn train/evaluate được **LRCN** và **ConvLSTM**.
+**MoViNet:** dùng gói [MoViNet-pytorch](https://github.com/Atze00/MoViNet-pytorch) (đã có trong `requirements.txt`). `pytorchvideo` không còn export `movinet_a0`.
 
 **Dataset từ Kaggle** (máy mới, chưa có `dataset/`):
 
@@ -217,7 +217,7 @@ Kiểm tra model build và forward với tensor giả:
 ```powershell
 python src/utils/test_model_forward.py --model lrcn
 python src/utils/test_model_forward.py --model convlstm
-python src/utils/test_model_forward.py --model movinet    # cần pytorchvideo
+python src/utils/test_model_forward.py --model movinet
 python src/utils/test_model_forward.py --model all
 ```
 
@@ -228,7 +228,7 @@ Output đúng: `Input (2, 3, 16, 224, 224)` → `Output (2, 5)`.
 ```powershell
 python src/training/train_lrcn.py
 python src/training/train_convlstm.py
-python src/training/train_movinet.py      # cần pytorchvideo
+python src/training/train_movinet.py
 ```
 
 **Mặc định:** 5 epoch, batch 2, 16 frame, lr `1e-4`. Model **best theo val accuracy** được lưu tự động.
@@ -304,7 +304,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-**MoViNet:** cần gói `pytorchvideo` (đã liệt kê trong `requirements.txt`). Nếu cài lỗi trên Windows, có thể train/evaluate trước hai model LRCN và ConvLSTM.
+**MoViNet:** cần gói `MoViNet-pytorch` (đã liệt kê trong `requirements.txt`).
 
 **Tải dataset từ Kaggle:**
 
@@ -318,39 +318,43 @@ pip install -r requirements.txt
 
 3. Hoặc set biến môi trường: `KAGGLE_DATASET_SLUG=owner/ten-bo-du-lieu`
 
-## Tối ưu GPU
+## Tối ưu GPU (tự scale theo VRAM)
 
-Khi có **CUDA**, project tự bật (xem `src/utils/gpu_runtime.py`):
+Khi train, `gpu_runtime.py` **đo VRAM** và tự chọn batch/workers. In log dạng:
 
-| Tối ưu | Mô tả |
-|--------|--------|
-| **Batch size** | LRCN/ConvLSTM: 16 — MoViNet: 8 (CPU: 2) |
-| **AMP (FP16)** | Mixed precision train/eval |
-| **DataLoader** | `pin_memory`, `persistent_workers`, `prefetch_factor` |
-| **TF32 + cuDNN benchmark** | Ampere+ / GPU NVIDIA |
-| **channels_last** | ResNet18 frame encoder (LRCN, ConvLSTM) |
-| **AdamW** | Optimizer thay Adam |
-| **non_blocking** | Copy tensor CPU→GPU song song |
+`VRAM 79.3 GB (high A100-class 80GB) | batch=192 workers=12 prefetch=4 compile=True`
 
-Tùy chỉnh trong `TrainConfig` (`training_common.py`):
+| VRAM GPU | LRCN / ConvLSTM batch | MoViNet batch |
+|----------|----------------------|---------------|
+| **≥ 70 GB** (A100 80GB) | **192** | **96** |
+| ≥ 40 GB | 96 | 48 |
+| ≥ 20 GB | 48 | 24 |
+| ≥ 10 GB (T4) | 24 | 12 |
+| ≥ 6 GB | 16 | 8 |
+
+Tự bật thêm: **AMP**, **TF32**, **pin_memory**, **prefetch=4** (VRAM ≥ 40GB), **`torch.compile`** (VRAM ≥ 40GB).
+
+**Ép batch cao hơn** (A100 còn trống VRAM) — sửa `src/training/train_lrcn.py`:
 
 ```python
-TrainConfig(
+CONFIG = TrainConfig(
     model_name="lrcn",
-    batch_size=32,        # ghi đè auto nếu > 2
-    compile_model=True,   # torch.compile (PyTorch 2+, thử trên Linux)
-    use_amp=True,
+    batch_size=256,       # ghi đè auto; tăng dần đến khi sắp OOM
+    num_workers=8,
+    compile_model=True,
 )
 ```
 
-OOM → giảm `batch_size`; tắt `compile_model` nếu lỗi khi lưu/load checkpoint.
+Giá trị `batch_size` **lớn hơn** mức auto sẽ **không bị hạ xuống**.
+
+OOM → giảm `batch_size`; lỗi `compile` → `compile_model=False`.
 
 ## Tham số huấn luyện mặc định
 
 | Tham số | CPU / debug | GPU (tự động) |
 |---------|-------------|---------------|
-| `batch_size` | 2 / 1 | LRCN & ConvLSTM: 16 — MoViNet: 8 |
-| `num_workers` | 0 | 2–8 (theo CPU) |
+| `batch_size` | 2 / 1 | Tự theo VRAM (A100 80GB: **192**) |
+| `num_workers` | 0 | 4–12 (VRAM lớn) |
 | `use_amp` | False | True |
 | `epochs` | 5 | 5 |
 | `num_frames` | 16 | 16 |
@@ -395,7 +399,7 @@ Video .mp4  →  StudentBehaviorDataset  →  [B,3,16,224,224]
 |-------------|-------------|
 | `Dataset train rỗng` | Chạy `download_dataset.py` hoặc kiểm tra `dataset/train/{class}/` |
 | `Không tìm thấy checkpoint` | Train model trước; kiểm tra `results/checkpoints/` |
-| MoViNet / `pytorchvideo` lỗi import | `pip install pytorchvideo` hoặc chỉ dùng LRCN + ConvLSTM |
+| MoViNet lỗi import | `pip install git+https://github.com/Atze00/MoViNet-pytorch.git` |
 | OOM GPU | Giảm `batch_size` trong `TrainConfig` hoặc bật `DEBUG` |
 | Train/evaluate quá chậm | Dùng GPU; hoặc `DEBUG=True` để thử pipeline |
 | `kaggle_dataset_slug` rỗng | Bình thường nếu đã có `dataset/` local; cần điền slug khi tải máy mới |

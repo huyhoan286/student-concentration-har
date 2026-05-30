@@ -24,6 +24,7 @@ from gpu_runtime import (
     apply_gpu_train_defaults,
     cuda_available,
     dataloader_kwargs,
+    describe_gpu_profile,
     gpu_device_name,
     prepare_model_for_gpu,
     setup_gpu_runtime,
@@ -275,6 +276,9 @@ def run_training(
         print(f" ({gpu_name})")
     else:
         print()
+
+    if device.type == "cuda":
+        print(describe_gpu_profile(config.model_name))
 
     print(
         f"Config: EPOCHS={config.epochs}, BATCH_SIZE={config.batch_size}, "

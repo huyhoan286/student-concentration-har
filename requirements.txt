@@ -9,4 +9,6 @@ tqdm
 pyyaml
 python-dotenv
 kagglehub
-pytorchvideo
+MoViNet-pytorch @ git+https://github.com/Atze00/MoViNet-pytorch.git
+einops
+fvcore
