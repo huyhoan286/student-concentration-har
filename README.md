@@ -66,6 +66,49 @@ Script sẽ: tạo `.venv` → `pip install` → nạp `.env` → tải Kaggle (
 
 **Nếu đã có sẵn `dataset/`** trên máy: không cần `KAGGLE_*` — setup bỏ qua bước tải.
 
+**Nếu đã có sẵn `dataset/`** trên máy: không cần `KAGGLE_*` — setup bỏ qua bước tải.
+
+---
+
+## Google Colab (GPU)
+
+### Cách 1 — Notebook (khuyến nghị)
+
+1. Push project lên GitHub (hoặc copy lên Google Drive).
+2. Mở [Google Colab](https://colab.research.google.com/) → **File → Upload notebook**  
+   hoặc **File → Open notebook → GitHub** → chọn `notebooks/train_colab.ipynb`.
+3. **Runtime → Change runtime type → T4 GPU** (hoặc A100 nếu có).
+4. **Secrets** 🔑 (panel trái): thêm
+   - `KAGGLE_API_TOKEN`
+   - `KAGGLE_DATASET_SLUG`
+5. Sửa cell **CẤU HÌNH**:
+   ```python
+   REPO_URL = "https://github.com/<user>/student-concentration-har.git"
+   USE_DRIVE = False
+   MODELS_TO_TRAIN = ["lrcn", "convlstm"]  # movinet cần pytorchvideo
+   ```
+   Hoặc `USE_DRIVE = True` và trỏ `DRIVE_PROJECT_PATH` nếu project nằm trên Drive.
+6. **Run all** — notebook sẽ: clone → `colab_setup.py` → train → evaluate → copy `results/` sang Drive.
+
+| File | Vai trò |
+|------|---------|
+| `notebooks/train_colab.ipynb` | Notebook chính trên Colab |
+| `scripts/colab_setup.py` | Cài package, tải data, smoke test |
+| `configs/colab_config.yaml` | Gợi ý cấu hình Colab |
+
+### Cách 2 — Colab terminal (clone thủ công)
+
+```python
+!git clone https://github.com/<user>/student-concentration-har.git
+%cd student-concentration-har
+# Thêm Secrets KAGGLE_* rồi:
+!python scripts/colab_setup.py
+!python src/training/train_lrcn.py
+!python src/utils/evaluate.py --model lrcn
+```
+
+**Lưu ý Colab:** session ngắn — bật `SAVE_TO_DRIVE = True` trong notebook để không mất checkpoint; `results/` không commit lên git.
+
 **Tùy chọn:**
 
 ```powershell
@@ -107,10 +150,13 @@ student-concentration-har/
     ├── gpu_runtime.py        # Batch/workers GPU, TF32, DataLoader
 │       ├── test_model_forward.py # Smoke test (chưa train)
 │       └── evaluate.py           # Đánh giá checkpoint trên test set
+├── notebooks/
+│   └── train_colab.ipynb       # Google Colab (GPU)
 ├── .env.example                # Mẫu biến môi trường (Kaggle)
 ├── setup.ps1 / setup.sh        # Setup một lệnh sau clone
 ├── scripts/
-│   └── setup_project.py
+│   ├── setup_project.py
+│   └── colab_setup.py          # Bootstrap Google Colab
 ├── requirements.txt
 └── README.md
 ```

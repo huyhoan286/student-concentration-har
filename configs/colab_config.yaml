@@ -1,0 +1,21 @@
+# Cấu hình gợi ý cho Google Colab (notebook: notebooks/train_colab.ipynb)
+
+# Git clone (điền URL repo của bạn; để trống nếu upload project lên Drive)
+repo_url: ""
+
+# Dataset Kaggle — ưu tiên Colab Secret KAGGLE_DATASET_SLUG
+kaggle_dataset_slug: ""
+
+# Train
+epochs: 5
+num_frames: 16
+
+# Model cần train: lrcn | convlstm | movinet
+models:
+  - lrcn
+  # - convlstm
+  # - movinet
+
+# Lưu kết quả sang Google Drive (tránh mất khi disconnect)
+save_to_drive: true
+drive_project_dir: "MyDrive/student-concentration-har"
