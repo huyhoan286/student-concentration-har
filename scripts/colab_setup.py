@@ -28,15 +28,22 @@ def is_colab() -> bool:
 
 
 def load_colab_secrets() -> dict[str, str]:
-    """Đọc Kaggle config từ Colab userdata secrets."""
+    """Đọc Kaggle từ os.environ (hardcode) hoặc Colab userdata secrets."""
     loaded: dict[str, str] = {}
-    if not is_colab():
+
+    for key in ("KAGGLE_API_TOKEN", "KAGGLE_DATASET_SLUG"):
+        if os.environ.get(key, "").strip():
+            loaded[key] = os.environ[key].strip()
+
+    if not is_colab() or len(loaded) == 2:
         return loaded
 
     try:
         from google.colab import userdata  # noqa: PLC0415
 
         for key in ("KAGGLE_API_TOKEN", "KAGGLE_DATASET_SLUG"):
+            if key in loaded:
+                continue
             try:
                 value = userdata.get(key).strip()
                 if value:
